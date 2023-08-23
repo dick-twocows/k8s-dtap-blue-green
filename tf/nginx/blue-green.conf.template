@@ -1,0 +1,33 @@
+
+
+server {
+    listen       80;
+    listen  [::]:80;
+    server_name  localhost;
+
+    #access_log  /var/log/nginx/host.access.log  main;
+
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+    }
+
+	location /${DTAP_ENVIRONMENT} {
+		proxy_pass http://${BLUE_GREEN_ACTIVE}.${DTAP_ENVIRONMENT}-${BLUE_GREEN_ACTIVE}.svc.cluster.local;
+	}
+
+	location /blue {
+		proxy_pass http://blue.${DTAP_ENVIRONMENT}-blue.svc.cluster.local;
+	}
+
+	location /green {
+		proxy_pass http://green.${DTAP_ENVIRONMENT}-green.svc.cluster.local;
+	}
+
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}

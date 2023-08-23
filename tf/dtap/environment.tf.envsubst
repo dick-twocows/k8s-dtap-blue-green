@@ -1,0 +1,126 @@
+
+variable "${DTAP_ENVIRONMENT}_blue_green_active" {
+	description = "Whether blue or green is active"
+	type = string
+  	default = "${BLUE_GREEN_ACTIVE}"
+}
+
+resource "kubernetes_namespace" "${DTAP_ENVIRONMENT}" {
+  metadata {
+    name = "${DTAP_ENVIRONMENT}"
+  }
+}
+
+resource "kubernetes_deployment" "${DTAP_ENVIRONMENT}" {
+  metadata {
+    name      = "${DTAP_ENVIRONMENT}"
+    namespace = "${DTAP_ENVIRONMENT}"
+  }
+  spec {
+    replicas = 1
+    selector {
+      match_labels = {
+        app = "${DTAP_ENVIRONMENT}"
+      }
+    }
+    template {
+      metadata {
+        labels = {
+          app = "${DTAP_ENVIRONMENT}"
+        }
+		annotations = {
+			nginx_checksum = "${md5(file("${path.module}/nginx/nginx.conf"))}"
+			blue_green_checksum = "${md5(file("${path.module}/nginx/blue-green.conf.template"))}"
+		}
+      }
+      spec {
+        container {
+          image = "nginx:latest"
+          name  = "${DTAP_ENVIRONMENT}-nginx-container"
+          port {
+            container_port = 80
+          }
+		  volume_mount {
+			name = "nginx-config"
+			mount_path = "/etc/nginx"
+		  }
+		  volume_mount {
+			name = "nginx-conf-d"
+			mount_path = "/etc/nginx/conf.d"
+		  }
+		  volume_mount {
+			name = "nginx-templates"
+			mount_path = "/etc/nginx/templates"
+		  }
+		  env {
+			name = "DTAP_ENVIRONMENT"
+			value = "${DTAP_ENVIRONMENT}"
+		  }
+		  env {
+			name = "BLUE_GREEN_ACTIVE"
+			value = "${var.${DTAP_ENVIRONMENT}_blue_green_active}"
+		  }
+        }
+		volume {
+			name = "nginx-config"
+			config_map {
+				name = "nginx-config"
+				items {
+					key = "nginx.conf"
+					path = "nginx.conf"
+				}
+				items {
+					key = "mime.types"
+					path = "mime.types"
+				}
+			}
+		}
+		volume {
+			name = "nginx-conf-d"
+			empty_dir {
+			}
+		}
+		volume {
+			name = "nginx-templates"
+			config_map {
+				name = "nginx-config"
+				items {
+					key = "blue-green.template"
+					path = "blue-green.conf.template"
+				}
+			}
+		}
+      }
+    }
+  }
+}
+
+resource "kubernetes_service" "${DTAP_ENVIRONMENT}" {
+  metadata {
+    name      = "${DTAP_ENVIRONMENT}"
+    namespace = "${DTAP_ENVIRONMENT}"
+  }
+  spec {
+    selector = {
+      app = "${DTAP_ENVIRONMENT}"
+    }
+    type = "NodePort"
+    port {
+      port        = 80
+      target_port = 80
+    }
+  }
+}
+
+resource "kubernetes_config_map" "${DTAP_ENVIRONMENT}" {
+  metadata {
+    name = "nginx-config"
+	namespace = "${DTAP_ENVIRONMENT}"
+  }
+
+  data = {
+	"nginx.conf" = "${file("${path.module}/nginx/nginx.conf")}"
+	"mime.types" = "${file("${path.module}/nginx/mime.types")}"
+	"blue-green.template" = "${file("${path.module}/nginx/blue-green.conf.template")}"
+  }
+}
