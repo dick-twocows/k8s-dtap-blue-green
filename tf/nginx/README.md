@@ -1,35 +1,31 @@
 # NGINX
 
-## Note
+## Config files
 
-TheThe config files were copied from *nginx:latest* using the following shell commands.
-The *conf.d/default.conf* file was not copied because we define a server block in *blue-green.conf.template*.
+The config files were copied from *nginx:latest* using the following shell commands.
+The *conf.d/default.conf* file was not copied because we define our own server block.
 
-```bash
-id="$(docker run -d nginx:latest)"
+	id="$(docker run -d nginx:latest)"
 
-docker cp "${id}:/etc/nginx/nginx.conf" ./nginx.conf
+	docker cp "${id}:/etc/nginx/nginx.conf" ./nginx.conf
 
-docker cp "${id}:/etc/nginx/mime.types" ./mime.types
+	docker cp "${id}:/etc/nginx/mime.types" ./mime.types
 
-docker cp "${id}:/etc/nginx/conf.d/default.conf" ./default.conf
+	docker stop "${id}"
 
-docker stop "${id}"
-
-docker rm "${id}"
-```
+	docker rm "${id}"
 
 ## Templates
 
 Active blue green is injected into the NGINX container as an environment variable *BLUE_GREEN_ACTIVE*.
 
-The *blue-green.conf.template* file is mounted into */etc/nginx/templates* which (from NGINX 1.19) is used in the https://github.com/nginxinc/docker-nginx/blob/master/mainline/debian/20-envsubst-on-templates.sh to substitute environment variables (wrapper around *envsubst*) and the result is copied into */etc/nginx/conf.d*.
-
-## Gotcha
+The *blue-green.conf.template* file is mounted into */etc/nginx/templates* which (from NGINX 1.19) is used in the [20-envsubst-on-templates](https://github.com/nginxinc/docker-nginx/blob/master/mainline/debian/20-envsubst-on-templates.sh) to substitute environment variables (wrapper around *envsubst*) and the result is copied into */etc/nginx/conf.d*. This allows us to use a vanilla *nginx.conf* which already has an include directive for */etc/nginx/conf.d*/*.conf.
 
 The default *nginx.conf* has the line *include /etc/nginx/conf.d/*.conf;* so make sure you name your templates *<name>.conf.template* because the templates script removes the *.template* extension.
 
 ## Debug
+
+The 10-listen-on-ipv6-by-default.sh script call will exit if there is no */etc/nginx/conf.d/default.conf* file, this not an issue as we define our own server block.4
 
 ```bash
 ❯ k logs test-85b45bb977-zx5b9 -n test
